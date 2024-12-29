@@ -356,7 +356,7 @@ app.post("/api/v1/exams/:examId/uploadPaper", upload.single("file"), authMiddlew
         const s3Key = `exams/${examId}/${examInfo.rows[0].name}-Paper`;
 
         await s3.upload({
-            Bucket: "",
+            Bucket: String(process.env.BUCKET),
             Key: s3Key,
             Body: encryptedData,
         }).promise();
