@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-const connectionString = "postgresql://mypostgres_u63o_user:CE8bxKsg92gZqW1FoIjW1VJQcNW06nYQ@dpg-ct496flumphs73e4hkg0-a.singapore-postgres.render.com:5432/mypostgres_u63o?sslmode=require";
+const connectionString = process.env.DB_URL;
 
 const pool = new Pool({
     connectionString,
@@ -68,9 +68,9 @@ const initializeDB = async () => {
 };
 
 const s3 = new AWS.S3({
-    accessKeyId: "",
-    secretAccessKey: "",
-    region: ""
+    accessKeyId: process.env.ACCESS_KEY,
+    secretAccessKey: process.env.SECRET_ACCESS,
+    region: process.env.REGION,
 });
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -97,7 +97,7 @@ const authMiddleware = async(req: Request, res: Response, next: NextFunction): P
     const authToken = authHeader.split(" ")[1];
 
     try {
-        const decoded = await jwt.verify(authToken, "your_jwt_secret");
+        const decoded = jwt.verify(authToken, String(process.env.JWT_SECRET));
         (<any>req).user = decoded;
         next();
     } catch (error) {
@@ -141,7 +141,7 @@ app.post("/api/v1/login", async (req: Request, res: Response): Promise<any>  => 
             return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        const token = jwt.sign({ id: userInfo.id}, "your_jwt_secret", { expiresIn: "1d" });
+        const token = jwt.sign({ id: userInfo.id}, String(process.env.JWT_SECRET), { expiresIn: "1d" });
         res.json({ token });
     } catch (error) {
         res.status(501).json({ message:"Internal Server error 🥲" });
@@ -431,15 +431,27 @@ app.get("/api/v1/getPaper/:examId", authMiddleware, async(req: Request, res: Res
             return res.status(404).json({ message: "Exam not found." });
         }
 
+        
         const exam = examResult.rows[0];
         const currentTime = new Date();
         const scheduledTime = new Date(exam.scheduled_time);
 
+        const examTeachers: any = await query("SELECT * FROM exam_teachers WHERE exam_id = $1", [examId]);
         if (
             userId !== exam.creator_id &&
-            userId !== exam.admin_id &&
-                (userRole === "Teacher" && (await isTeacherAssignedToExam(userId, examId)))
+            userId !== exam.admin_id 
         ) {
+            return res.status(403).json({ message: "Access denied. Unauthorized." });
+        }
+
+        let flag = true;
+        for(let i = 0 ; i < examTeachers.rowCount ; i++) {
+            if(userId === examTeachers.rows[i].teacher_id) {
+                flag = false;
+            }
+        }
+
+        if(flag) {
             return res.status(403).json({ message: "Access denied. Unauthorized." });
         }
 
