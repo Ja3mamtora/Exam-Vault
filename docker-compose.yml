@@ -1,0 +1,31 @@
+version: '3.8'
+
+services: 
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: exam-vault
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DB_URL=postgresql://user:password@db:5432/mydatabase
+    depends_on:
+      - db
+
+  db: 
+    image: postgres:15
+    container_name: db-container
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydatabaase
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+  
+volumes:
+  db_data:
